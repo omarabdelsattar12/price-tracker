@@ -38,7 +38,7 @@ APP_PASSWORD = "sqff rkjn brtw ofgo"           # ← Replace with your real App 
 # 🔐 USER DATABASE
 # ==========================================
 
-USERS = {}  # No demo users - real email only
+USERS = {}
 
 SESSIONS = {}
 SESSION_EXPIRY = {}
@@ -202,51 +202,50 @@ def get_dashboard_html(email, products, message=None, message_type=None):
     waiting = total - dropped - errors
     
     products_html = ""
-if products:
-    for i, p in enumerate(products):
-        status_class = "dropped" if p.get('status') == 'dropped' else "error" if p.get('status') == 'error' else ""
-        price_class = "price-green" if p.get('status') == 'dropped' else "price-red" if p.get('status') == 'error' else "price-yellow"
-        
-        if p.get('status') == 'dropped':
-            status_text = "✅ Price Dropped!"
-            badge_class = "status-dropped"
-        elif p.get('status') == 'error':
-            status_text = "❌ Error"
-            badge_class = "status-error"
-        else:
-            status_text = "⏳ Waiting"
-            badge_class = "status-waiting"
-        
-        # ✅ THIS IS THE FIXED LINE
-        price_display = f"SAR {p.get('current_price', 'N/A')}"
-        
-        products_html += f"""
-        <div class="product-card {status_class}">
-            <div class="product-name">
-                <div>{p.get('name', 'Unknown')}</div>
-                <div class="product-url"><a href="{p.get('url', '#')}" target="_blank" style="color: #00d4ff;">🔗 View Product</a></div>
+    if products:
+        for i, p in enumerate(products):
+            status_class = "dropped" if p.get('status') == 'dropped' else "error" if p.get('status') == 'error' else ""
+            price_class = "price-green" if p.get('status') == 'dropped' else "price-red" if p.get('status') == 'error' else "price-yellow"
+            
+            if p.get('status') == 'dropped':
+                status_text = "✅ Price Dropped!"
+                badge_class = "status-dropped"
+            elif p.get('status') == 'error':
+                status_text = "❌ Error"
+                badge_class = "status-error"
+            else:
+                status_text = "⏳ Waiting"
+                badge_class = "status-waiting"
+            
+            price_display = f"SAR {p.get('current_price', 'N/A')}"
+            
+            products_html += f"""
+            <div class="product-card {status_class}">
+                <div class="product-name">
+                    <div>{p.get('name', 'Unknown')}</div>
+                    <div class="product-url"><a href="{p.get('url', '#')}" target="_blank" style="color: #00d4ff;">🔗 View Product</a></div>
+                </div>
+                <div class="product-price {price_class}">
+                    {price_display}
+                    <div style="font-size: 14px; color: #888;">Target: SAR {p.get('target', 0)}</div>
+                </div>
+                <div class="product-status">
+                    <span class="status-badge {badge_class}">{status_text}</span>
+                </div>
+                <div class="product-actions">
+                    <form method="POST" action="/remove_product/{i}" style="display:inline;">
+                        <button type="submit">✕ Remove</button>
+                    </form>
+                </div>
             </div>
-            <div class="product-price {price_class}">
-                {price_display}
-                <div style="font-size: 14px; color: #888;">Target: SAR {p.get('target', 0)}</div>
-            </div>
-            <div class="product-status">
-                <span class="status-badge {badge_class}">{status_text}</span>
-            </div>
-            <div class="product-actions">
-                <form method="POST" action="/remove_product/{i}" style="display:inline;">
-                    <button type="submit">✕ Remove</button>
-                </form>
-            </div>
+            """
+    else:
+        products_html = """
+        <div style="text-align: center; padding: 50px; color: #555;">
+            <h3>📭 No products being tracked</h3>
+            <p>Add your first product using the form above!</p>
         </div>
         """
-else:
-    products_html = """
-    <div style="text-align: center; padding: 50px; color: #555;">
-        <h3>📭 No products being tracked</h3>
-        <p>Add your first product using the form above!</p>
-    </div>
-    """
     
     message_html = ""
     if message:
@@ -314,7 +313,6 @@ else:
         .success {{ background: #00ff8822; color: #00ff88; border: 1px solid #00ff88; }}
         .error-msg {{ background: #ff6b6b22; color: #ff6b6b; border: 1px solid #ff6b6b; }}
         
-        /* Bug Report Modal */
         .modal {{
             display: none;
             position: fixed;
@@ -401,7 +399,6 @@ else:
         <div class="footer">🔄 Refreshes every 5 minutes &nbsp;|&nbsp; Price Scout v2.0</div>
     </div>
     
-    <!-- ===== BUG REPORT MODAL ===== -->
     <div id="bugModal" class="modal">
         <div class="modal-content">
             <h2>🐛 Report a Bug</h2>
