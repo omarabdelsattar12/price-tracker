@@ -202,50 +202,51 @@ def get_dashboard_html(email, products, message=None, message_type=None):
     waiting = total - dropped - errors
     
     products_html = ""
-    if products:
-        for i, p in enumerate(products):
-            status_class = "dropped" if p.get('status') == 'dropped' else "error" if p.get('status') == 'error' else ""
-            price_class = "price-green" if p.get('status') == 'dropped' else "price-red" if p.get('status') == 'error' else "price-yellow"
-            
-            if p.get('status') == 'dropped':
-                status_text = "✅ Price Dropped!"
-                badge_class = "status-dropped"
-            elif p.get('status') == 'error':
-                status_text = "❌ Error"
-                badge_class = "status-error"
-            else:
-                status_text = "⏳ Waiting"
-                badge_class = "status-waiting"
-            
-           price_display = f"SAR {p.get('current_price', 'N/A')}" if p.get('current_price') else "N/A"
-            
-            products_html += f"""
-            <div class="product-card {status_class}">
-                <div class="product-name">
-                    <div>{p.get('name', 'Unknown')}</div>
-                    <div class="product-url"><a href="{p.get('url', '#')}" target="_blank" style="color: #00d4ff;">🔗 View Product</a></div>
-                </div>
-                <div class="product-price {price_class}">
-                    {price_display}
-                    <div style="font-size: 14px; color: #888;">Target: SAR {p.get('target', 0)}</div>
-                </div>
-                <div class="product-status">
-                    <span class="status-badge {badge_class}">{status_text}</span>
-                </div>
-                <div class="product-actions">
-                    <form method="POST" action="/remove_product/{i}" style="display:inline;">
-                        <button type="submit">✕ Remove</button>
-                    </form>
-                </div>
+if products:
+    for i, p in enumerate(products):
+        status_class = "dropped" if p.get('status') == 'dropped' else "error" if p.get('status') == 'error' else ""
+        price_class = "price-green" if p.get('status') == 'dropped' else "price-red" if p.get('status') == 'error' else "price-yellow"
+        
+        if p.get('status') == 'dropped':
+            status_text = "✅ Price Dropped!"
+            badge_class = "status-dropped"
+        elif p.get('status') == 'error':
+            status_text = "❌ Error"
+            badge_class = "status-error"
+        else:
+            status_text = "⏳ Waiting"
+            badge_class = "status-waiting"
+        
+        # ✅ THIS IS THE FIXED LINE
+        price_display = f"SAR {p.get('current_price', 'N/A')}"
+        
+        products_html += f"""
+        <div class="product-card {status_class}">
+            <div class="product-name">
+                <div>{p.get('name', 'Unknown')}</div>
+                <div class="product-url"><a href="{p.get('url', '#')}" target="_blank" style="color: #00d4ff;">🔗 View Product</a></div>
             </div>
-            """
-    else:
-        products_html = """
-        <div style="text-align: center; padding: 50px; color: #555;">
-            <h3>📭 No products being tracked</h3>
-            <p>Add your first product using the form above!</p>
+            <div class="product-price {price_class}">
+                {price_display}
+                <div style="font-size: 14px; color: #888;">Target: SAR {p.get('target', 0)}</div>
+            </div>
+            <div class="product-status">
+                <span class="status-badge {badge_class}">{status_text}</span>
+            </div>
+            <div class="product-actions">
+                <form method="POST" action="/remove_product/{i}" style="display:inline;">
+                    <button type="submit">✕ Remove</button>
+                </form>
+            </div>
         </div>
         """
+else:
+    products_html = """
+    <div style="text-align: center; padding: 50px; color: #555;">
+        <h3>📭 No products being tracked</h3>
+        <p>Add your first product using the form above!</p>
+    </div>
+    """
     
     message_html = ""
     if message:
