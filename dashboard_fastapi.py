@@ -25,7 +25,7 @@ GOOGLE_CLIENT_SECRET = "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"
 # ==========================================
 
 # ==========================================
-# 📧 EMAIL CONFIGURATION (For Bug Reports)
+# 📧 EMAIL CONFIGURATION
 # ==========================================
 
 # ✅ REPLACE WITH YOUR REAL EMAIL AND APP PASSWORD
@@ -38,7 +38,12 @@ APP_PASSWORD = "sqff rkjn brtw ofgo"           # ← Replace with your real App 
 # 🔐 USER DATABASE
 # ==========================================
 
-USERS = {}
+USERS = {}  # email -> { "verified": bool, "created_at": datetime }
+
+# Store magic links: token -> email
+MAGIC_LINKS = {}
+# Expire after 10 minutes
+MAGIC_LINK_EXPIRY = {}
 
 SESSIONS = {}
 SESSION_EXPIRY = {}
@@ -69,12 +74,58 @@ def clean_expired_sessions():
             del SESSIONS[sid]
         del SESSION_EXPIRY[sid]
 
+def clean_expired_magic_links():
+    now = datetime.now()
+    expired = [token for token, expiry in MAGIC_LINK_EXPIRY.items() if expiry < now]
+    for token in expired:
+        if token in MAGIC_LINKS:
+            del MAGIC_LINKS[token]
+        del MAGIC_LINK_EXPIRY[token]
+
 # ==========================================
-# 📧 SEND BUG REPORT EMAIL
+# 📧 SEND EMAIL FUNCTIONS
 # ==========================================
 
+def send_magic_link(email, token):
+    """Send magic link to user's email"""
+    link = f"https://price-tracker-x5nt.onrender.com/verify/{token}"
+    
+    subject = "🔐 Your Price Scout Login Link"
+    
+    body = f"""
+Hello!
+
+Click the link below to log in to Price Scout:
+
+🔗 {link}
+
+This link expires in 10 minutes.
+
+If you didn't request this, please ignore this email.
+
+---
+Price Scout Team
+"""
+    
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = YOUR_EMAIL
+        msg['To'] = email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'plain'))
+        
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(YOUR_EMAIL, APP_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"❌ Email failed: {e}")
+        return False
+
 def send_bug_report(email, bug_description, page_url):
-    """Send bug report to admin email"""
+    """Send bug report to admin"""
     subject = f"🐛 Bug Report from {email}"
     
     body = f"""
@@ -109,7 +160,7 @@ This report was sent from Price Scout.
         return False
 
 # ==========================================
-# 🏠 LOGIN PAGE
+# 🏠 LOGIN PAGE (No Password!)
 # ==========================================
 
 LOGIN_PAGE = """
@@ -118,31 +169,6 @@ LOGIN_PAGE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    
-    <title>Price Scout - Track Any Product Price</title>
-    <meta name="description" content="Track product prices from Amazon, Noon, and other stores. Get email alerts when prices drop.">
-    <meta name="robots" content="index, follow">
-    <meta property="og:title" content="Price Scout - Track Any Product Price">
-    <meta property="og:description" content="Track product prices from Amazon, Noon, and other stores. Get alerts when prices drop.">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://price-tracker-x5nt.onrender.com">
-    <link rel="canonical" href="https://price-tracker-x5nt.onrender.com">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛒</text></svg>">
-    
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@type": "WebApplication",
-        "name": "Price Scout",
-        "description": "Track product prices from Amazon, Noon, and other stores. Get alerts when prices drop.",
-        "applicationCategory": "Shopping",
-        "operatingSystem": "All",
-        "browserRequirements": "Requires JavaScript",
-        "url": "https://price-tracker-x5nt.onrender.com"
-    }
-    </script>
-    
     <title>🔐 Login - Price Scout</title>
     <style>
         body { background: #0f0f1a; color: #fff; font-family: Arial; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
@@ -158,41 +184,35 @@ LOGIN_PAGE = """
         input:focus { outline: none; border-color: #00d4ff; }
         button { width: 100%; padding: 12px; border-radius: 8px; border: none; background: #00d4ff; color: #000; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
         button:hover { background: #00b8e6; }
+        .success { color: #00ff88; margin: 10px 0; }
         .error { color: #ff6b6b; margin: 10px 0; }
         .info { color: #888; font-size: 13px; margin-top: 15px; }
-        .remember-me { display: flex; align-items: center; gap: 8px; margin: 10px 0; color: #888; font-size: 14px; }
-        .remember-me input { width: auto; margin: 0; }
         .footer-text { color: #555; font-size: 12px; margin-top: 10px; }
     </style>
 </head>
 <body>
     <div class="login-box">
         <h1>🛒 Price Scout</h1>
-        <p class="subtitle">Sign in to track your products</p>
+        <p class="subtitle">Sign in with your email — no password needed!</p>
         
         <a href="/auth/google" class="google-btn">🔑 Sign in with Google</a>
         
         <div class="divider"><span>or</span></div>
         
-        <form method="POST" action="/login">
-            <input type="email" name="email" placeholder="Your real email address" required>
-            <input type="password" name="password" placeholder="Your password (min 4 characters)" required minlength="4">
-            <div class="remember-me">
-                <input type="checkbox" name="remember_me" id="remember_me" checked>
-                <label for="remember_me">Remember me for 7 days</label>
-            </div>
-            <button type="submit">🔓 Create Account / Login</button>
+        <form method="POST" action="/send_magic_link">
+            <input type="email" name="email" placeholder="Your email address" required>
+            <button type="submit">📧 Send Magic Link</button>
         </form>
-        <div class="info">💡 New users: Use your real email and create a password</div>
-        <div class="footer-text">🔒 Your data is private and secure</div>
-        {error}
+        <div class="info">💡 We'll email you a secure login link</div>
+        <div class="footer-text">🔒 No password to remember or reset</div>
+        {message}
     </div>
 </body>
 </html>
 """
 
 # ==========================================
-# 📊 DASHBOARD (WITH REPORT BUG BUTTON)
+# 📊 DASHBOARD
 # ==========================================
 
 def get_dashboard_html(email, products, message=None, message_type=None):
@@ -258,18 +278,6 @@ def get_dashboard_html(email, products, message=None, message_type=None):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    
-    <title>Price Scout - Track Any Product Price</title>
-    <meta name="description" content="Track product prices from Amazon, Noon, and other stores. Get email alerts when prices drop.">
-    <meta name="robots" content="index, follow">
-    <meta property="og:title" content="Price Scout - Track Any Product Price">
-    <meta property="og:description" content="Track product prices from Amazon, Noon, and other stores. Get alerts when prices drop.">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://price-tracker-x5nt.onrender.com">
-    <link rel="canonical" href="https://price-tracker-x5nt.onrender.com">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛒</text></svg>">
-    
     <title>🛒 Price Scout</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
@@ -440,49 +448,64 @@ async def login_page(request: Request):
     session_id = request.cookies.get("session_id")
     if session_id and session_id in SESSIONS:
         return RedirectResponse(url="/dashboard", status_code=302)
-    return LOGIN_PAGE
+    return LOGIN_PAGE.replace("{message}", "")
 
-@app.post("/login", response_class=HTMLResponse)
-async def login(
-    request: Request,
-    response: Response,
-    email: str = Form(...),
-    password: str = Form(...),
-    remember_me: bool = Form(False)
-):
-    if len(password) < 4:
-        error_msg = '<div class="error">❌ Password must be at least 4 characters</div>'
-        return LOGIN_PAGE.replace("{error}", error_msg)
+@app.post("/send_magic_link", response_class=HTMLResponse)
+async def send_magic_link(request: Request, email: str = Form(...)):
+    clean_expired_magic_links()
     
-    if email in USERS:
-        hashed = hashlib.sha256(password.encode()).hexdigest()
-        if USERS[email] != hashed:
-            error_msg = '<div class="error">❌ Invalid email or password</div>'
-            return LOGIN_PAGE.replace("{error}", error_msg)
+    # Create a unique token
+    token = str(uuid.uuid4())
+    
+    # Store token with email
+    MAGIC_LINKS[token] = email
+    MAGIC_LINK_EXPIRY[token] = datetime.now() + timedelta(minutes=10)
+    
+    # Send the email
+    success = send_magic_link(email, token)
+    
+    if success:
+        message = '<div class="success">✅ Magic link sent to your email! Check your inbox.</div>'
     else:
-        USERS[email] = hashlib.sha256(password.encode()).hexdigest()
+        message = '<div class="error">❌ Failed to send email. Please try again.</div>'
     
+    return LOGIN_PAGE.replace("{message}", message)
+
+@app.get("/verify/{token}")
+async def verify_magic_link(request: Request, token: str):
+    clean_expired_magic_links()
+    
+    if token not in MAGIC_LINKS:
+        return HTMLResponse("""
+        <h1>❌ Invalid or Expired Link</h1>
+        <p>This magic link has expired or is invalid.</p>
+        <a href="/">Go back to login</a>
+        """)
+    
+    email = MAGIC_LINKS[token]
+    
+    # Create session
     session_id = str(uuid.uuid4())
     SESSIONS[session_id] = email
+    SESSION_EXPIRY[session_id] = datetime.now() + timedelta(days=7)
     
-    if remember_me:
-        expiry = datetime.now() + timedelta(days=7)
-        max_age = 7 * 24 * 60 * 60
-    else:
-        expiry = datetime.now() + timedelta(hours=24)
-        max_age = 24 * 60 * 60
+    # Register user if new
+    if email not in USERS:
+        USERS[email] = {"verified": True, "created_at": datetime.now().isoformat()}
     
-    SESSION_EXPIRY[session_id] = expiry
+    # Clean up used token
+    del MAGIC_LINKS[token]
+    del MAGIC_LINK_EXPIRY[token]
     
-    redirect_response = RedirectResponse(url="/dashboard", status_code=302)
-    redirect_response.set_cookie(
+    response = RedirectResponse(url="/dashboard", status_code=302)
+    response.set_cookie(
         key="session_id",
         value=session_id,
-        max_age=max_age,
+        max_age=7 * 24 * 60 * 60,
         httponly=True,
         samesite="lax"
     )
-    return redirect_response
+    return response
 
 @app.get("/auth/google")
 async def google_login():
@@ -526,7 +549,7 @@ async def google_callback(request: Request, code: str = None):
             return RedirectResponse(url="/?error=no_email")
         
         if email not in USERS:
-            USERS[email] = hashlib.sha256("google_oauth".encode()).hexdigest()
+            USERS[email] = {"verified": True, "created_at": datetime.now().isoformat()}
         
         session_id = str(uuid.uuid4())
         SESSIONS[session_id] = email
@@ -577,7 +600,6 @@ async def dashboard(request: Request):
     return get_dashboard_html(email, products, message, message_type)
 
 def get_product_info(url):
-    """Simple version without Selenium - works on Render"""
     try:
         import urllib.parse
         domain = urllib.parse.urlparse(url).netloc
@@ -690,9 +712,10 @@ if __name__ == "__main__":
     print("="*60)
     print("🛒 PRICE SCOUT — Dashboard")
     print("="*60)
-    print("📧 Users sign up with real email")
+    print("📧 Magic Link Login — No Password Needed!")
     print("🐛 Bug reports sent to: " + YOUR_EMAIL)
     print("📊 URL: https://price-tracker-x5nt.onrender.com")
     print("="*60)
     
     uvicorn.run(app, host="0.0.0.0", port=10000)
+    
