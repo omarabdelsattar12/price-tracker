@@ -8,11 +8,6 @@ import hashlib
 import uuid
 import requests
 from datetime import datetime, timedelta
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 
 app = FastAPI()
 
@@ -20,16 +15,19 @@ app = FastAPI()
 # 🔐 GOOGLE OAUTH CONFIGURATION
 # ==========================================
 
-# ✅ REPLACE THESE WITH YOUR REAL CREDENTIALS
-GOOGLE_CLIENT_ID = " 425975360883-khqg707cmt1nthr2s9pcg9bmam0ejusq.apps.googleusercontent.com"
+GOOGLE_CLIENT_ID = "425975360883-khqg707cmt1nthr2s9pcg9bmam0ejusq.apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET = "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"
 
 # ==========================================
 
+USERS = {
+    "demo@email.com": hashlib.sha256("demo123".encode()).hexdigest(),
+}
+
 SESSIONS = {}
+SESSION_EXPIRY = {}
 
 def get_user_data_file(email):
-    """Each user gets their own data file"""
     safe_email = email.replace("@", "_at_").replace(".", "_dot_")
     return f"user_data_{safe_email}.json"
 
@@ -47,89 +45,27 @@ def save_products(email, products):
     except:
         pass
 
+def clean_expired_sessions():
+    now = datetime.now()
+    expired = [sid for sid, expiry in SESSION_EXPIRY.items() if expiry < now]
+    for sid in expired:
+        if sid in SESSIONS:
+            del SESSIONS[sid]
+        del SESSION_EXPIRY[sid]
+
 # ==========================================
-# 🕷️ SCRAPER
+# 🕷️ SIMPLE SCRAPER (No Selenium)
 # ==========================================
 
 def get_product_info(url):
+    """Simple version without Selenium - works on Render"""
     try:
-        options = Options()
-        options.add_argument("--headless")
-        options.add_argument("--disable-blink-features=AutomationControlled")
-        options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-        
-        service = Service(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service, options=options)
-        
-        driver.get(url)
-        time.sleep(3)
-        
-        name = "Unknown Product"
-        selectors = [
-            "#productTitle", ".product-title", "h1",
-            ".productDetailsTitle", ".product-title__text",
-            "[data-testid='product-title']"
-        ]
-        for selector in selectors:
-            try:
-                element = driver.find_element(By.CSS_SELECTOR, selector)
-                name = element.text.strip()
-                if name and len(name) > 3:
-                    break
-            except:
-                pass
-        
-        price = None
-        page_text = driver.page_source
-        
-        patterns = [
-            r'(\d+\.?\d*)\s*SAR',
-            r'SAR\s*(\d+\.?\d*)',
-            r'ريال\s*(\d+\.?\d*)',
-            r'(\d+\.?\d*)\s*ريال',
-            r'\$(\d+\.?\d*)',
-            r'(\d+\.?\d*)\s*دولار',
-        ]
-        
-        for pattern in patterns:
-            matches = re.findall(pattern, page_text)
-            if matches:
-                for match in matches:
-                    try:
-                        val = float(match)
-                        if 1 < val < 100000:
-                            price = val
-                            break
-                    except:
-                        pass
-                if price:
-                    break
-        
-        if price is None:
-            try:
-                price_elements = driver.find_elements(By.CSS_SELECTOR, "[class*='price'], [class*='Price']")
-                for elem in price_elements:
-                    text = elem.text.strip()
-                    numbers = re.findall(r'(\d+\.?\d*)', text)
-                    if numbers:
-                        for num in numbers:
-                            try:
-                                val = float(num)
-                                if 1 < val < 100000:
-                                    price = val
-                                    break
-                            except:
-                                pass
-                    if price:
-                        break
-            except:
-                pass
-        
-        driver.quit()
-        return name, price
-        
-    except Exception as e:
-        print(f"❌ Scraper error: {e}")
+        # Try to get product name from URL
+        import urllib.parse
+        domain = urllib.parse.urlparse(url).netloc
+        name = f"Product from {domain}"
+        return name, None
+    except:
         return "Unknown Product", None
 
 # ==========================================
@@ -159,6 +95,8 @@ LOGIN_PAGE = """
         button:hover { background: #00b8e6; }
         .error { color: #ff6b6b; margin: 10px 0; }
         .info { color: #888; font-size: 13px; margin-top: 15px; }
+        .remember-me { display: flex; align-items: center; gap: 8px; margin: 10px 0; color: #888; font-size: 14px; }
+        .remember-me input { width: auto; margin: 0; }
     </style>
 </head>
 <body>
@@ -172,10 +110,16 @@ LOGIN_PAGE = """
         
         <form method="POST" action="/login">
             <input type="email" name="email" placeholder="Email address" required>
-            <input type="password" name="password" placeholder="Password" required>
+            <input type="password" name="password" placeholder="Password (min 4 characters)" required minlength="4">
+            <div class="remember-me">
+                <input type="checkbox" name="remember_me" id="remember_me" checked>
+                <label for="remember_me">Remember me for 7 days</label>
+            </div>
             <button type="submit">🔓 Login / Sign Up</button>
         </form>
-        <div class="info">💡 New users are automatically registered</div>
+        <div class="info">💡 New users: Password must be at least 4 characters</div>
+        <div class="info" style="margin-top: 5px; color: #555;">Demo: demo@email.com / demo123</div>
+        {error}
     </div>
 </body>
 </html>
@@ -346,35 +290,60 @@ def get_dashboard_html(email, products, message=None, message_type=None):
 
 @app.get("/", response_class=HTMLResponse)
 async def login_page(request: Request):
+    clean_expired_sessions()
     session_id = request.cookies.get("session_id")
     if session_id and session_id in SESSIONS:
         return RedirectResponse(url="/dashboard", status_code=302)
     return LOGIN_PAGE
 
 @app.post("/login", response_class=HTMLResponse)
-async def login(request: Request, response: Response, email: str = Form(...), password: str = Form(...)):
-    # Simple login for demo
-    if email == "demo@email.com" and password == "demo123":
-        session_id = str(uuid.uuid4())
-        SESSIONS[session_id] = email
-        redirect_response = RedirectResponse(url="/dashboard", status_code=302)
-        redirect_response.set_cookie(key="session_id", value=session_id, max_age=7*24*60*60)
-        return redirect_response
+async def login(
+    request: Request,
+    response: Response,
+    email: str = Form(...),
+    password: str = Form(...),
+    remember_me: bool = Form(False)
+):
+    if len(password) < 4:
+        error_msg = '<div class="error">❌ Password must be at least 4 characters</div>'
+        return LOGIN_PAGE.replace("{error}", error_msg)
     
-    # For new users: auto-register
+    if email in USERS:
+        hashed = hashlib.sha256(password.encode()).hexdigest()
+        if USERS[email] != hashed:
+            error_msg = '<div class="error">❌ Invalid email or password</div>'
+            return LOGIN_PAGE.replace("{error}", error_msg)
+    else:
+        USERS[email] = hashlib.sha256(password.encode()).hexdigest()
+    
     session_id = str(uuid.uuid4())
     SESSIONS[session_id] = email
+    
+    if remember_me:
+        expiry = datetime.now() + timedelta(days=7)
+        max_age = 7 * 24 * 60 * 60
+    else:
+        expiry = datetime.now() + timedelta(hours=24)
+        max_age = 24 * 60 * 60
+    
+    SESSION_EXPIRY[session_id] = expiry
+    
     redirect_response = RedirectResponse(url="/dashboard", status_code=302)
-    redirect_response.set_cookie(key="session_id", value=session_id, max_age=7*24*60*60)
+    redirect_response.set_cookie(
+        key="session_id",
+        value=session_id,
+        max_age=max_age,
+        httponly=True,
+        samesite="lax"
+    )
     return redirect_response
 
 @app.get("/auth/google")
 async def google_login():
-    """Redirect to Google OAuth"""
     auth_url = (
         f"https://accounts.google.com/o/oauth2/auth"
         f"?client_id={GOOGLE_CLIENT_ID}"
-        f"&redirect_uri=http://127.0.0.1:5000/auth/google/callback"
+        f"&redirect_uri=https://price-tracker-x5nt.onrender.com/auth/google/callback"
         f"&response_type=code"
         f"&scope=email%20profile"
     )
@@ -382,16 +351,14 @@ async def google_login():
 
 @app.get("/auth/google/callback")
 async def google_callback(request: Request, code: str = None):
-    """Handle Google OAuth callback"""
     if not code:
         return RedirectResponse(url="/?error=google_failed")
     
-    # Exchange code for token
     token_url = "https://oauth2.googleapis.com/token"
     data = {
         'client_id': GOOGLE_CLIENT_ID,
         'client_secret': GOOGLE_CLIENT_SECRET,
-        'redirect_uri': 'http://127.0.0.1:5000/auth/google/callback',
+        'redirect_uri': 'https://price-tracker-x5nt.onrender.com/auth/google/callback',
         'code': code,
         'grant_type': 'authorization_code'
     }
@@ -403,7 +370,6 @@ async def google_callback(request: Request, code: str = None):
         if 'access_token' not in token_data:
             return RedirectResponse(url="/?error=token_failed")
         
-        # Get user info
         userinfo_url = "https://www.googleapis.com/oauth2/v1/userinfo"
         headers = {'Authorization': f"Bearer {token_data['access_token']}"}
         user_response = requests.get(userinfo_url, headers=headers)
@@ -413,11 +379,21 @@ async def google_callback(request: Request, code: str = None):
         if not email:
             return RedirectResponse(url="/?error=no_email")
         
+        if email not in USERS:
+            USERS[email] = hashlib.sha256("google_oauth".encode()).hexdigest()
+        
         session_id = str(uuid.uuid4())
         SESSIONS[session_id] = email
+        SESSION_EXPIRY[session_id] = datetime.now() + timedelta(days=7)
         
         response = RedirectResponse(url="/dashboard", status_code=302)
-        response.set_cookie(key="session_id", value=session_id, max_age=7*24*60*60)
+        response.set_cookie(
+            key="session_id",
+            value=session_id,
+            max_age=7 * 24 * 60 * 60,
+            httponly=True,
+            samesite="lax"
+        )
         return response
         
     except Exception as e:
@@ -425,14 +401,24 @@ async def google_callback(request: Request, code: str = None):
         return RedirectResponse(url="/?error=google_failed")
 
 @app.get("/logout")
-async def logout():
+async def logout(request: Request):
     response = RedirectResponse(url="/", status_code=302)
     response.delete_cookie("session_id")
+    
+    session_id = request.cookies.get("session_id")
+    if session_id:
+        if session_id in SESSIONS:
+            del SESSIONS[session_id]
+        if session_id in SESSION_EXPIRY:
+            del SESSION_EXPIRY[session_id]
+    
     return response
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
+    clean_expired_sessions()
     session_id = request.cookies.get("session_id")
+    
     if not session_id or session_id not in SESSIONS:
         return RedirectResponse(url="/", status_code=302)
     
@@ -499,9 +485,7 @@ if __name__ == "__main__":
     print("="*60)
     print("📧 Login with Google OR Email/Password")
     print("🔑 Demo: demo@email.com / demo123")
-    print("✅ Each user has their own products")
-    print("="*60)
-    print("📊 URL: http://127.0.0.1:5000")
+    print("📊 URL: https://price-tracker-x5nt.onrender.com")
     print("="*60)
     
-    uvicorn.run(app, host="127.0.0.1", port=5000)
+    uvicorn.run(app, host="0.0.0.0", port=10000)
