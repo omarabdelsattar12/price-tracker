@@ -18,7 +18,7 @@ app = FastAPI()
 # 🔐 GOOGLE OAUTH CONFIGURATION
 # ==========================================
 
-# ✅ REPLACE WITH YOUR REAL CREDENTIALS
+# ✅ REPLACE WITH YOUR REAL GOOGLE CREDENTIALS
 GOOGLE_CLIENT_ID = "425975360883-khqg707cmt1nthr2s9pcg9bmam0ejusq.apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET = "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"
 
@@ -29,8 +29,8 @@ GOOGLE_CLIENT_SECRET = "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"
 # ==========================================
 
 # ✅ REPLACE WITH YOUR REAL EMAIL AND APP PASSWORD
-YOUR_EMAIL = "omar.abdelsattar2020@gmail.com"          # ← Replace with your email
-APP_PASSWORD = "sqff rkjn brtw ofgo"           # ← Replace with your App Password
+YOUR_EMAIL = "omar.abdelsattar2020@gmail.com"          # ← Replace with your real email
+APP_PASSWORD = "sqff rkjn brtw ofgo"           # ← Replace with your real App Password
 
 # ==========================================
 
@@ -217,7 +217,7 @@ def get_dashboard_html(email, products, message=None, message_type=None):
                 status_text = "⏳ Waiting"
                 badge_class = "status-waiting"
             
-            price_display = f"SAR {p.get('current_price', 'N/A')}" if p.get('current_price') else "N/A"
+            price_display = f"SAR {p.get('current_price, 'N/A')}" if p.get('current_price') else "N/A"
             
             products_html += f"""
             <div class="product-card {status_class}">
@@ -648,7 +648,6 @@ async def report_bug(
     
     email = SESSIONS[session_id]
     
-    # Send email
     success = send_bug_report(email, bug_description, page_url)
     
     if success:
