@@ -7,6 +7,9 @@ import time
 import hashlib
 import uuid
 import requests
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 
 app = FastAPI()
@@ -15,14 +18,27 @@ app = FastAPI()
 # 🔐 GOOGLE OAUTH CONFIGURATION
 # ==========================================
 
+# ✅ REPLACE WITH YOUR REAL CREDENTIALS
 GOOGLE_CLIENT_ID = "425975360883-khqg707cmt1nthr2s9pcg9bmam0ejusq.apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET = "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"
 
 # ==========================================
 
-USERS = {
-    "demo@email.com": hashlib.sha256("demo123".encode()).hexdigest(),
-}
+# ==========================================
+# 📧 EMAIL CONFIGURATION (For Bug Reports)
+# ==========================================
+
+# ✅ REPLACE WITH YOUR REAL EMAIL
+YOUR_EMAIL = "omar.abdelsattar2020@gmail.com"
+APP_PASSWORD = "sqff rkjn brtw ofgo"  # Get from Google App Passwords
+
+# ==========================================
+
+# ==========================================
+# 🔐 USER DATABASE
+# ==========================================
+
+USERS = {}  # No demo users - real email only
 
 SESSIONS = {}
 SESSION_EXPIRY = {}
@@ -54,19 +70,43 @@ def clean_expired_sessions():
         del SESSION_EXPIRY[sid]
 
 # ==========================================
-# 🕷️ SIMPLE SCRAPER (No Selenium)
+# 📧 SEND BUG REPORT EMAIL
 # ==========================================
 
-def get_product_info(url):
-    """Simple version without Selenium - works on Render"""
+def send_bug_report(email, bug_description, page_url):
+    """Send bug report to admin email"""
+    subject = f"🐛 Bug Report from {email}"
+    
+    body = f"""
+🐛 BUG REPORT
+
+📧 From: {email}
+📄 Page: {page_url}
+📅 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+📝 Description:
+{bug_description}
+
+---
+This report was sent from Price Scout.
+"""
+    
     try:
-        # Try to get product name from URL
-        import urllib.parse
-        domain = urllib.parse.urlparse(url).netloc
-        name = f"Product from {domain}"
-        return name, None
-    except:
-        return "Unknown Product", None
+        msg = MIMEMultipart()
+        msg['From'] = YOUR_EMAIL
+        msg['To'] = YOUR_EMAIL
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'plain'))
+        
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(YOUR_EMAIL, APP_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"❌ Email failed: {e}")
+        return False
 
 # ==========================================
 # 🏠 LOGIN PAGE
@@ -74,10 +114,35 @@ def get_product_info(url):
 
 LOGIN_PAGE = """
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    
+    <title>Price Scout - Track Any Product Price</title>
+    <meta name="description" content="Track product prices from Amazon, Noon, and other stores. Get email alerts when prices drop.">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Price Scout - Track Any Product Price">
+    <meta property="og:description" content="Track product prices from Amazon, Noon, and other stores. Get alerts when prices drop.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://price-tracker-x5nt.onrender.com">
+    <link rel="canonical" href="https://price-tracker-x5nt.onrender.com">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛒</text></svg>">
+    
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Price Scout",
+        "description": "Track product prices from Amazon, Noon, and other stores. Get alerts when prices drop.",
+        "applicationCategory": "Shopping",
+        "operatingSystem": "All",
+        "browserRequirements": "Requires JavaScript",
+        "url": "https://price-tracker-x5nt.onrender.com"
+    }
+    </script>
+    
     <title>🔐 Login - Price Scout</title>
     <style>
         body { background: #0f0f1a; color: #fff; font-family: Arial; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
@@ -97,6 +162,7 @@ LOGIN_PAGE = """
         .info { color: #888; font-size: 13px; margin-top: 15px; }
         .remember-me { display: flex; align-items: center; gap: 8px; margin: 10px 0; color: #888; font-size: 14px; }
         .remember-me input { width: auto; margin: 0; }
+        .footer-text { color: #555; font-size: 12px; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -109,16 +175,16 @@ LOGIN_PAGE = """
         <div class="divider"><span>or</span></div>
         
         <form method="POST" action="/login">
-            <input type="email" name="email" placeholder="Email address" required>
-            <input type="password" name="password" placeholder="Password (min 4 characters)" required minlength="4">
+            <input type="email" name="email" placeholder="Your real email address" required>
+            <input type="password" name="password" placeholder="Your password (min 4 characters)" required minlength="4">
             <div class="remember-me">
                 <input type="checkbox" name="remember_me" id="remember_me" checked>
                 <label for="remember_me">Remember me for 7 days</label>
             </div>
-            <button type="submit">🔓 Login / Sign Up</button>
+            <button type="submit">🔓 Create Account / Login</button>
         </form>
-        <div class="info">💡 New users: Password must be at least 4 characters</div>
-        <div class="info" style="margin-top: 5px; color: #555;">Demo: demo@email.com / demo123</div>
+        <div class="info">💡 New users: Use your real email and create a password</div>
+        <div class="footer-text">🔒 Your data is private and secure</div>
         {error}
     </div>
 </body>
@@ -126,7 +192,7 @@ LOGIN_PAGE = """
 """
 
 # ==========================================
-# 📊 DASHBOARD
+# 📊 DASHBOARD (WITH REPORT BUG BUTTON)
 # ==========================================
 
 def get_dashboard_html(email, products, message=None, message_type=None):
@@ -151,7 +217,7 @@ def get_dashboard_html(email, products, message=None, message_type=None):
                 status_text = "⏳ Waiting"
                 badge_class = "status-waiting"
             
-            price_display = f"${p.get('current_price', 'N/A')}" if p.get('current_price') else "N/A"
+            price_display = f"SAR {p.get('current_price', 'N/A')}" if p.get('current_price') else "N/A"
             
             products_html += f"""
             <div class="product-card {status_class}">
@@ -161,7 +227,7 @@ def get_dashboard_html(email, products, message=None, message_type=None):
                 </div>
                 <div class="product-price {price_class}">
                     {price_display}
-                    <div style="font-size: 14px; color: #888;">Target: ${p.get('target', 0)}</div>
+                    <div style="font-size: 14px; color: #888;">Target: SAR {p.get('target', 0)}</div>
                 </div>
                 <div class="product-status">
                     <span class="status-badge {badge_class}">{status_text}</span>
@@ -188,10 +254,22 @@ def get_dashboard_html(email, products, message=None, message_type=None):
     
     return f"""
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    
+    <title>Price Scout - Track Any Product Price</title>
+    <meta name="description" content="Track product prices from Amazon, Noon, and other stores. Get email alerts when prices drop.">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Price Scout - Track Any Product Price">
+    <meta property="og:description" content="Track product prices from Amazon, Noon, and other stores. Get alerts when prices drop.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://price-tracker-x5nt.onrender.com">
+    <link rel="canonical" href="https://price-tracker-x5nt.onrender.com">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛒</text></svg>">
+    
     <title>🛒 Price Scout</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
@@ -200,6 +278,9 @@ def get_dashboard_html(email, products, message=None, message_type=None):
         .header {{ background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 30px; border-radius: 15px; margin-bottom: 30px; border: 1px solid #2a2a4e; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }}
         .header h1 {{ color: #00d4ff; font-size: 28px; }}
         .header p {{ color: #888; }}
+        .header-actions {{ display: flex; align-items: center; gap: 15px; }}
+        .report-btn {{ background: #ff6b6b22; color: #ff6b6b; border: 1px solid #ff6b6b; padding: 6px 15px; border-radius: 20px; text-decoration: none; font-size: 13px; font-weight: 600; transition: all 0.3s; }}
+        .report-btn:hover {{ background: #ff6b6b44; }}
         .logout {{ color: #ff6b6b; text-decoration: none; margin-left: 15px; }}
         .stats {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px; }}
         .stat-card {{ background: #1a1a2e; padding: 20px; border-radius: 12px; text-align: center; border: 1px solid #2a2a4e; }}
@@ -231,10 +312,51 @@ def get_dashboard_html(email, products, message=None, message_type=None):
         .message {{ padding: 10px; border-radius: 8px; margin-bottom: 15px; }}
         .success {{ background: #00ff8822; color: #00ff88; border: 1px solid #00ff88; }}
         .error-msg {{ background: #ff6b6b22; color: #ff6b6b; border: 1px solid #ff6b6b; }}
+        
+        /* Bug Report Modal */
+        .modal {{
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }}
+        .modal.show {{ display: flex; }}
+        .modal-content {{
+            background: #1a1a2e;
+            padding: 30px;
+            border-radius: 15px;
+            width: 500px;
+            max-width: 90%;
+            border: 1px solid #2a2a4e;
+        }}
+        .modal-content h2 {{ color: #00d4ff; margin-bottom: 15px; }}
+        .modal-content textarea {{
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #2a2a4e;
+            background: #0f0f1a;
+            color: #fff;
+            font-size: 14px;
+            min-height: 120px;
+            resize: vertical;
+            margin: 10px 0;
+        }}
+        .modal-content textarea:focus {{ outline: none; border-color: #00d4ff; }}
+        .modal-actions {{ display: flex; gap: 10px; margin-top: 15px; }}
+        .modal-actions button {{ padding: 10px 25px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; }}
+        .btn-send {{ background: #00d4ff; color: #000; }}
+        .btn-send:hover {{ background: #00b8e6; }}
+        .btn-cancel {{ background: #2a2a4e; color: #fff; }}
+        .btn-cancel:hover {{ background: #3a3a5e; }}
         @media (max-width: 600px) {{
             .stats {{ grid-template-columns: repeat(2, 1fr); }}
             .product-card {{ flex-direction: column; align-items: stretch; text-align: center; }}
             .header {{ flex-direction: column; text-align: center; gap: 10px; }}
+            .modal-content {{ width: 95%; }}
         }}
     </style>
 </head>
@@ -245,8 +367,9 @@ def get_dashboard_html(email, products, message=None, message_type=None):
                 <h1>🛒 Price Scout</h1>
                 <p>Track any product from any website</p>
             </div>
-            <div>
+            <div class="header-actions">
                 <span style="color: #00d4ff;">👤 {email}</span>
+                <a href="#" class="report-btn" onclick="openReportModal()">🐛 Report Bug</a>
                 <a href="/logout" class="logout">🚪 Logout</a>
             </div>
         </div>
@@ -262,7 +385,7 @@ def get_dashboard_html(email, products, message=None, message_type=None):
             <h2>➕ Add New Product</h2>
             <form class="add-form" method="POST" action="/add_product">
                 <input type="url" name="url" placeholder="Paste product URL (Amazon, Noon, etc.)" required>
-                <input type="number" name="target" placeholder="Target price (SAR or $)" required step="0.01" min="0.01">
+                <input type="number" name="target" placeholder="Target price (SAR)" required step="0.01" min="0.01">
                 <button type="submit">🔍 Add & Track</button>
             </form>
             <div style="color: #888; font-size: 12px; margin-top: 10px;">💡 Supports: Amazon, Noon, Jarir, and most online stores</div>
@@ -277,8 +400,34 @@ def get_dashboard_html(email, products, message=None, message_type=None):
         <div class="footer">🔄 Refreshes every 5 minutes &nbsp;|&nbsp; Price Scout v2.0</div>
     </div>
     
+    <!-- ===== BUG REPORT MODAL ===== -->
+    <div id="bugModal" class="modal">
+        <div class="modal-content">
+            <h2>🐛 Report a Bug</h2>
+            <p style="color: #888; font-size: 14px;">Describe the issue you're experiencing. We'll look into it!</p>
+            <form id="bugForm" method="POST" action="/report_bug">
+                <input type="hidden" name="page_url" id="page_url">
+                <textarea name="bug_description" id="bug_description" placeholder="What went wrong? Please be as detailed as possible..." required></textarea>
+                <div class="modal-actions">
+                    <button type="button" class="btn-cancel" onclick="closeReportModal()">Cancel</button>
+                    <button type="submit" class="btn-send">📧 Send Report</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
     <script>
-        setInterval(function() {{ location.reload(); }}, 300000);
+        function openReportModal() {{
+            document.getElementById('bugModal').classList.add('show');
+            document.getElementById('page_url').value = window.location.href;
+        }}
+        function closeReportModal() {{
+            document.getElementById('bugModal').classList.remove('show');
+        }}
+        // Close modal when clicking outside
+        document.getElementById('bugModal').addEventListener('click', function(e) {{
+            if (e.target === this) closeReportModal();
+        }});
     </script>
 </body>
 </html>
@@ -430,6 +579,16 @@ async def dashboard(request: Request):
     
     return get_dashboard_html(email, products, message, message_type)
 
+def get_product_info(url):
+    """Simple version without Selenium - works on Render"""
+    try:
+        import urllib.parse
+        domain = urllib.parse.urlparse(url).netloc
+        name = f"Product from {domain}"
+        return name, None
+    except:
+        return "Unknown Product", None
+
 @app.post("/add_product")
 async def add_product(request: Request, url: str = Form(...), target: str = Form(...)):
     session_id = request.cookies.get("session_id")
@@ -478,13 +637,65 @@ async def remove_product(request: Request, index: int):
     
     return RedirectResponse(url="/dashboard", status_code=302)
 
+@app.post("/report_bug")
+async def report_bug(
+    request: Request,
+    bug_description: str = Form(...),
+    page_url: str = Form(...)
+):
+    session_id = request.cookies.get("session_id")
+    if not session_id or session_id not in SESSIONS:
+        return RedirectResponse(url="/", status_code=302)
+    
+    email = SESSIONS[session_id]
+    
+    # Send email
+    success = send_bug_report(email, bug_description, page_url)
+    
+    if success:
+        return RedirectResponse(url="/dashboard?message=✅ Bug report sent! Thank you!", status_code=302)
+    else:
+        return RedirectResponse(url="/dashboard?message=❌ Failed to send report. Please try again.", status_code=302)
+
+@app.get("/robots.txt")
+async def robots():
+    content = """User-agent: *
+Allow: /
+Disallow: /logout
+Disallow: /remove_product/*
+Disallow: /report_bug
+
+Sitemap: https://price-tracker-x5nt.onrender.com/sitemap.xml
+"""
+    return Response(content=content, media_type="text/plain")
+
+@app.get("/sitemap.xml")
+async def sitemap():
+    base_url = "https://price-tracker-x5nt.onrender.com"
+    pages = [
+        {"loc": f"{base_url}/", "priority": "1.0"},
+        {"loc": f"{base_url}/dashboard", "priority": "0.9"},
+    ]
+    
+    xml = '''<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+'''
+    for page in pages:
+        xml += f'''<url>
+    <loc>{page['loc']}</loc>
+    <priority>{page['priority']}</priority>
+</url>\n'''
+    
+    xml += '</urlset>'
+    return Response(content=xml, media_type="application/xml")
+
 if __name__ == "__main__":
     import uvicorn
     print("="*60)
     print("🛒 PRICE SCOUT — Dashboard")
     print("="*60)
-    print("📧 Login with Google OR Email/Password")
-    print("🔑 Demo: demo@email.com / demo123")
+    print("📧 Users sign up with real email")
+    print("🐛 Bug reports sent to: " + YOUR_EMAIL)
     print("📊 URL: https://price-tracker-x5nt.onrender.com")
     print("="*60)
     
