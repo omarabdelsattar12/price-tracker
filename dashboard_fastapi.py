@@ -28,9 +28,9 @@ GOOGLE_CLIENT_SECRET = "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"
 # 📧 EMAIL CONFIGURATION (For Bug Reports)
 # ==========================================
 
-# ✅ REPLACE WITH YOUR REAL EMAIL
-YOUR_EMAIL = "omar.abdelsattar2020@gmail.com"
-APP_PASSWORD = "sqff rkjn brtw ofgo"  # Get from Google App Passwords
+# ✅ REPLACE WITH YOUR REAL EMAIL AND APP PASSWORD
+YOUR_EMAIL = "omar.abdelsattar2020@gmail.com"          # ← Replace with your email
+APP_PASSWORD = "sqff rkjn brtw ofgo"           # ← Replace with your App Password
 
 # ==========================================
 
@@ -424,7 +424,6 @@ def get_dashboard_html(email, products, message=None, message_type=None):
         function closeReportModal() {{
             document.getElementById('bugModal').classList.remove('show');
         }}
-        // Close modal when clicking outside
         document.getElementById('bugModal').addEventListener('click', function(e) {{
             if (e.target === this) closeReportModal();
         }});
