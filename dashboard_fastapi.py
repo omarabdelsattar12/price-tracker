@@ -25,7 +25,7 @@ GOOGLE_CLIENT_SECRET = "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"
 # ==========================================
 
 # ==========================================
-# 📧 EMAIL CONFIGURATION
+# 📧 EMAIL CONFIGURATION (For Bug Reports & Magic Links)
 # ==========================================
 
 # ✅ REPLACE WITH YOUR REAL EMAIL AND APP PASSWORD
@@ -38,11 +38,10 @@ APP_PASSWORD = "sqff rkjn brtw ofgo"           # ← Replace with your real App 
 # 🔐 USER DATABASE
 # ==========================================
 
-USERS = {}  # email -> { "verified": bool, "created_at": datetime }
+USERS = {}  # email -> {"verified": True, "created_at": ""}
 
-# Store magic links: token -> email
+# Magic Links
 MAGIC_LINKS = {}
-# Expire after 10 minutes
 MAGIC_LINK_EXPIRY = {}
 
 SESSIONS = {}
@@ -125,7 +124,7 @@ Price Scout Team
         return False
 
 def send_bug_report(email, bug_description, page_url):
-    """Send bug report to admin"""
+    """Send bug report to admin email"""
     subject = f"🐛 Bug Report from {email}"
     
     body = f"""
@@ -149,18 +148,28 @@ This report was sent from Price Scout.
         msg['Subject'] = subject
         msg.attach(MIMEText(body, 'plain'))
         
+        print(f"📧 Attempting to send email from {YOUR_EMAIL}")
+        
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
         server.login(YOUR_EMAIL, APP_PASSWORD)
         server.send_message(msg)
         server.quit()
+        
+        print("✅ Email sent successfully!")
         return True
+        
+    except smtplib.SMTPAuthenticationError as e:
+        print(f"❌ Authentication failed: {e}")
+        print("💡 Check YOUR_EMAIL and APP_PASSWORD")
+        return False
+        
     except Exception as e:
         print(f"❌ Email failed: {e}")
         return False
 
 # ==========================================
-# 🏠 LOGIN PAGE (No Password!)
+# 🏠 LOGIN PAGE
 # ==========================================
 
 LOGIN_PAGE = """
@@ -454,14 +463,10 @@ async def login_page(request: Request):
 async def send_magic_link(request: Request, email: str = Form(...)):
     clean_expired_magic_links()
     
-    # Create a unique token
     token = str(uuid.uuid4())
-    
-    # Store token with email
     MAGIC_LINKS[token] = email
     MAGIC_LINK_EXPIRY[token] = datetime.now() + timedelta(minutes=10)
     
-    # Send the email
     success = send_magic_link(email, token)
     
     if success:
@@ -484,16 +489,13 @@ async def verify_magic_link(request: Request, token: str):
     
     email = MAGIC_LINKS[token]
     
-    # Create session
     session_id = str(uuid.uuid4())
     SESSIONS[session_id] = email
     SESSION_EXPIRY[session_id] = datetime.now() + timedelta(days=7)
     
-    # Register user if new
     if email not in USERS:
         USERS[email] = {"verified": True, "created_at": datetime.now().isoformat()}
     
-    # Clean up used token
     del MAGIC_LINKS[token]
     del MAGIC_LINK_EXPIRY[token]
     
@@ -718,4 +720,3 @@ if __name__ == "__main__":
     print("="*60)
     
     uvicorn.run(app, host="0.0.0.0", port=10000)
-    
