@@ -217,7 +217,7 @@ def get_dashboard_html(email, products, message=None, message_type=None):
                 status_text = "⏳ Waiting"
                 badge_class = "status-waiting"
             
-            price_display = f"SAR {p.get('current_price, 'N/A')}" if p.get('current_price') else "N/A"
+           price_display = f"SAR {p.get('current_price', 'N/A')}" if p.get('current_price') else "N/A"
             
             products_html += f"""
             <div class="product-card {status_class}">
