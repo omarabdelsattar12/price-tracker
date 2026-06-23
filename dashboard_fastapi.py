@@ -30,7 +30,7 @@ GOOGLE_CLIENT_SECRET = "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"
 
 # ✅ REPLACE WITH YOUR REAL EMAIL AND APP PASSWORD
 YOUR_EMAIL = "omar.abdelsattar2020@gmail.com"          # ← Replace with your real email
-APP_PASSWORD = "sqff rkjn brtw ofgo"           # ← Replace with your real App Password (NO SPACES)
+APP_PASSWORD = "sqffrkjnbrtwofgo"           # ← Replace with your real App Password (NO SPACES)
 
 # ==========================================
 
