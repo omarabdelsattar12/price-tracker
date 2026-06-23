@@ -30,7 +30,7 @@ GOOGLE_CLIENT_SECRET = "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"
 
 # ✅ REPLACE WITH YOUR REAL EMAIL AND APP PASSWORD
 YOUR_EMAIL = "omar.abdelsattar2020@gmail.com"          # ← Replace with your real email
-APP_PASSWORD = "sqff rkjn brtw ofgo"           # ← Replace with your real App Password
+APP_PASSWORD = "sqff rkjn brtw ofgo"           # ← Replace with your real App Password (NO SPACES)
 
 # ==========================================
 
@@ -107,6 +107,9 @@ Price Scout Team
 """
     
     try:
+        print(f"📧 Attempting to send email to: {email}")
+        print(f"📧 From: {YOUR_EMAIL}")
+        
         msg = MIMEMultipart()
         msg['From'] = YOUR_EMAIL
         msg['To'] = email
@@ -118,7 +121,15 @@ Price Scout Team
         server.login(YOUR_EMAIL, APP_PASSWORD)
         server.send_message(msg)
         server.quit()
+        
+        print("✅ Email sent successfully!")
         return True
+        
+    except smtplib.SMTPAuthenticationError as e:
+        print(f"❌ Authentication failed: {e}")
+        print("💡 Check YOUR_EMAIL and APP_PASSWORD")
+        return False
+        
     except Exception as e:
         print(f"❌ Email failed: {e}")
         return False
@@ -148,7 +159,7 @@ This report was sent from Price Scout.
         msg['Subject'] = subject
         msg.attach(MIMEText(body, 'plain'))
         
-        print(f"📧 Attempting to send email from {YOUR_EMAIL}")
+        print(f"📧 Attempting to send bug report from {YOUR_EMAIL}")
         
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
@@ -156,7 +167,7 @@ This report was sent from Price Scout.
         server.send_message(msg)
         server.quit()
         
-        print("✅ Email sent successfully!")
+        print("✅ Bug report sent successfully!")
         return True
         
     except smtplib.SMTPAuthenticationError as e:
@@ -600,6 +611,47 @@ async def dashboard(request: Request):
     message_type = "success" if message and "✅" in message else "error-msg"
     
     return get_dashboard_html(email, products, message, message_type)
+
+@app.get("/test_email")
+async def test_email():
+    """Test route to check if email configuration works"""
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = YOUR_EMAIL
+        msg['To'] = YOUR_EMAIL
+        msg['Subject'] = "🔔 Price Scout - Test Email"
+        msg.attach(MIMEText("""
+✅ This is a test email from Price Scout!
+
+If you received this, your email configuration is working correctly.
+
+---
+Price Scout Team
+        """.strip(), 'plain'))
+        
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(YOUR_EMAIL, APP_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        
+        return {
+            "status": "✅ Email sent!",
+            "from": YOUR_EMAIL,
+            "to": YOUR_EMAIL,
+            "message": "Check your inbox (and spam folder)"
+        }
+    except smtplib.SMTPAuthenticationError as e:
+        return {
+            "status": "❌ Authentication failed",
+            "error": str(e),
+            "fix": "Check YOUR_EMAIL and APP_PASSWORD"
+        }
+    except Exception as e:
+        return {
+            "status": "❌ Email failed",
+            "error": str(e)
+        }
 
 def get_product_info(url):
     try:
