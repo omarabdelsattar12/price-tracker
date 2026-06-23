@@ -25,7 +25,7 @@ GOOGLE_CLIENT_SECRET = "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"
 # ==========================================
 
 # ==========================================
-# 📧 EMAIL CONFIGURATION (For Bug Reports & Magic Links)
+# 📧 EMAIL CONFIGURATION (Gmail with SSL)
 # ==========================================
 
 # ✅ REPLACE WITH YOUR REAL EMAIL AND APP PASSWORD
@@ -38,9 +38,8 @@ APP_PASSWORD = "sqffrkjnbrtwofgo"           # ← Replace with your real App Pas
 # 🔐 USER DATABASE
 # ==========================================
 
-USERS = {}  # email -> {"verified": True, "created_at": ""}
+USERS = {}
 
-# Magic Links
 MAGIC_LINKS = {}
 MAGIC_LINK_EXPIRY = {}
 
@@ -82,11 +81,12 @@ def clean_expired_magic_links():
         del MAGIC_LINK_EXPIRY[token]
 
 # ==========================================
-# 📧 SEND EMAIL FUNCTIONS
+# 📧 SEND EMAIL WITH GMAIL (SSL FIX)
 # ==========================================
 
 def send_magic_link(email, token):
-    """Send magic link to user's email"""
+    """Send magic link using Gmail with SSL (port 465)"""
+    
     link = f"https://price-tracker-x5nt.onrender.com/verify/{token}"
     
     subject = "🔐 Your Price Scout Login Link"
@@ -116,8 +116,8 @@ Price Scout Team
         msg['Subject'] = subject
         msg.attach(MIMEText(body, 'plain'))
         
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
+        # ✅ USE SSL (PORT 465) INSTEAD OF TLS (587)
+        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
         server.login(YOUR_EMAIL, APP_PASSWORD)
         server.send_message(msg)
         server.quit()
@@ -125,17 +125,13 @@ Price Scout Team
         print("✅ Email sent successfully!")
         return True
         
-    except smtplib.SMTPAuthenticationError as e:
-        print(f"❌ Authentication failed: {e}")
-        print("💡 Check YOUR_EMAIL and APP_PASSWORD")
-        return False
-        
     except Exception as e:
         print(f"❌ Email failed: {e}")
         return False
 
 def send_bug_report(email, bug_description, page_url):
-    """Send bug report to admin email"""
+    """Send bug report using Gmail with SSL"""
+    
     subject = f"🐛 Bug Report from {email}"
     
     body = f"""
@@ -159,10 +155,7 @@ This report was sent from Price Scout.
         msg['Subject'] = subject
         msg.attach(MIMEText(body, 'plain'))
         
-        print(f"📧 Attempting to send bug report from {YOUR_EMAIL}")
-        
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
+        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
         server.login(YOUR_EMAIL, APP_PASSWORD)
         server.send_message(msg)
         server.quit()
@@ -170,13 +163,8 @@ This report was sent from Price Scout.
         print("✅ Bug report sent successfully!")
         return True
         
-    except smtplib.SMTPAuthenticationError as e:
-        print(f"❌ Authentication failed: {e}")
-        print("💡 Check YOUR_EMAIL and APP_PASSWORD")
-        return False
-        
     except Exception as e:
-        print(f"❌ Email failed: {e}")
+        print(f"❌ Bug report failed: {e}")
         return False
 
 # ==========================================
@@ -614,23 +602,15 @@ async def dashboard(request: Request):
 
 @app.get("/test_email")
 async def test_email():
-    """Test route to check if email configuration works"""
+    """Test route to check if Gmail SSL works"""
     try:
         msg = MIMEMultipart()
         msg['From'] = YOUR_EMAIL
         msg['To'] = YOUR_EMAIL
         msg['Subject'] = "🔔 Price Scout - Test Email"
-        msg.attach(MIMEText("""
-✅ This is a test email from Price Scout!
-
-If you received this, your email configuration is working correctly.
-
----
-Price Scout Team
-        """.strip(), 'plain'))
+        msg.attach(MIMEText("✅ This is a test email from Price Scout! The Gmail SSL fix is working.", 'plain'))
         
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
+        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
         server.login(YOUR_EMAIL, APP_PASSWORD)
         server.send_message(msg)
         server.quit()
@@ -645,7 +625,7 @@ Price Scout Team
         return {
             "status": "❌ Authentication failed",
             "error": str(e),
-            "fix": "Check YOUR_EMAIL and APP_PASSWORD"
+            "fix": "Check YOUR_EMAIL and APP_PASSWORD (no spaces)"
         }
     except Exception as e:
         return {
@@ -756,7 +736,8 @@ async def sitemap():
         xml += f'''<url>
     <loc>{page['loc']}</loc>
     <priority>{page['priority']}</priority>
-</url>\n'''
+</url>
+'''
     
     xml += '</urlset>'
     return Response(content=xml, media_type="application/xml")
